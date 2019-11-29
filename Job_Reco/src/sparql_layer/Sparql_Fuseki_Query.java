@@ -15,6 +15,7 @@ import org.apache.jena.query.QuerySolution;
 import org.apache.jena.query.ResultSet;
 import org.apache.jena.rdf.model.RDFNode;
 
+import model.Applicants;
 import model.Jobs;
 import model.LatLongPair;
 import model.Location;
@@ -28,6 +29,9 @@ public class Sparql_Fuseki_Query {
 	static String serviceEndpoint = "http://localhost:3030/ExploreJob/";
 	// static String serviceEndpoint =
 	// "https://ser531.s3.amazonaws.com/Location.txt?force=true";
+   
+	
+	
 	
 	public static void main(String[] args) throws IOException, ParseException {
 
@@ -42,10 +46,53 @@ public class Sparql_Fuseki_Query {
 		// sfq.getCityName(serviceEndpoint, queryString);
 		// sfq.solve1(serviceEndpoint, queryString);
 
-		String json = "{\"skillName\":[\"database\",\"management\"]}";
-		sfq.getJobByFilter(queryString, json);
+		String json = "{\"skills\":[\"communication\"]}";
+//		sfq.getJobByFilter(queryString, json);
+		sfq.getApplicantByFilter(queryString, json);
 
 		// System.out.println(json);
+	}
+
+	private StringBuilder createApplicantFilter(StringBuilder query, String json) throws ParseException {
+		Object obj = new JSONParser().parse(json);
+		JSONObject jo = (JSONObject) obj;
+		if (jo.get("email") != null) {
+			String value = jo.get("title").toString();
+			String titleFilter = "FILTER (?title = \"" + value + "\")";
+			query.append(titleFilter);
+		}
+		if (jo.get("expectedGraduationDate") != null) {
+			String value = jo.get("expectedGraduationDate").toString();
+			String titleFilter = "FILTER (?title = \"" + value + "\")";
+			query.append(titleFilter);
+		}
+		if (jo.get("expectedSalary") != null) {
+			String value = jo.get("postdate").toString();
+			String titleFilter = "FILTER (?title = \"" + value + "\")";
+			query.append(titleFilter);
+		}
+		if (jo.get("applicantName") != null) {
+			String value = jo.get("appdeadline").toString();
+			String titleFilter = "FILTER (?title = \"" + value + "\")";
+			query.append(titleFilter);
+		}
+		
+		if (jo.get("specialzation") != null) {
+			String value = jo.get("specialzation").toString();
+			String titleFilter = "FILTER (?title = \"" + value + "\")";
+			query.append(titleFilter);
+		}
+		if (jo.get("schoolLevel") != null) {
+			String value = jo.get("schoolLevel").toString();
+			String titleFilter = "FILTER (?title = \"" + value + "\")";
+			query.append(titleFilter);
+		}
+		
+
+		query.append("} LIMIT 25");
+
+		return query;
+
 	}
 
 	private StringBuilder createJobFilter(StringBuilder query, String json) throws ParseException {
@@ -98,20 +145,64 @@ public class Sparql_Fuseki_Query {
 		return query;
 	}
 
+	private StringBuilder createApplicantFilterSkill(StringBuilder query, String json) throws ParseException {
+		Object obj = new JSONParser().parse(json);
+		JSONObject jo = (JSONObject) obj;
+		if (jo.get("skills") != null) {
+			JSONArray ja = (JSONArray) jo.get("skills");
+			Iterator itr2 = ja.iterator();
+			while (itr2.hasNext()) {
+				String str = itr2.next().toString();
+				query.append("FILTER regex(?skills, \"" + str + "\")");
+
+			}
+		}
+
+		return query;
+	}
+
 	private StringBuilder createJobFilterSkill(StringBuilder query, String json) throws ParseException {
 		Object obj = new JSONParser().parse(json);
 		JSONObject jo = (JSONObject) obj;
 		if (jo.get("skillName") != null) {
 			JSONArray ja = (JSONArray) jo.get("skillName");
 			Iterator itr2 = ja.iterator();
-			while(itr2.hasNext()) {
+			while (itr2.hasNext()) {
 				String str = itr2.next().toString();
-				query.append("FILTER regex(?skillName,\""+str+"\")");
-				
+				query.append("FILTER regex(?skillName,\"" + str + "\")");
+
 			}
 		}
 
 		return query;
+	}
+
+	public void getApplicantByFilter(StringBuilder queryString, String json) throws ParseException {
+		queryString.append(
+				"select ?name ?email ?gender ?expectedGradDate ?expectedSalary ?skills ?major ?university ?schoolLevel ?specialization ?loc ?lat ?long\r\n"
+						+ "WHERE{\r\n" + "?person    getApp:has_Name  ?name ;\r\n"
+						+ "     	    getApp:lives_in  ?loc ;\r\n" + "           getApp:email  ?email ;\r\n"
+						+ "           getApp:gender ?gender ;\r\n"
+						+ "     	    getApp:expectedGraduationDate  ?expectedGradDate ;\r\n"
+						+ "           getApp:expected_Salary  ?expectedSalary ;\r\n"
+						+ "     	    getApp:has_skills  ?skills ;\r\n" + "           getApp:major  ?major ;\r\n"
+						+ "     	    getApp:school  ?university ;\r\n"
+						+ "           getApp:schoolLevel ?schoolLevel ;\r\n"
+						+ "  		    getApp:specialization ?specialization ;\r\n"
+						+ "		    getApp:schoolLevel \"Bachelor\" .\r\n" + "?location   getLoc:has_Name  ?loc ;\r\n"
+						+ "      getLoc:has_Latitude ?lat ;\r\n" + "      getLoc:has_Longitude ?long\n");
+		queryString = createApplicantFilterSkill(queryString, json);
+		queryString = createApplicantFilter(queryString, json);
+		Query query = QueryFactory.create(queryString.toString());
+		QueryExecution qexec = QueryExecutionFactory.sparqlService(serviceEndpoint, query);
+		try {
+			ResultSet response = qexec.execSelect();
+			List<Applicants> result = getApplicantFromResponse(response);
+			System.out.println(result);
+
+		} finally {
+			qexec.close();
+		}
 	}
 
 	public void getJobByFilter(StringBuilder queryString, String json) throws ParseException {
@@ -138,6 +229,88 @@ public class Sparql_Fuseki_Query {
 		} finally {
 			qexec.close();
 		}
+	}
+
+	private List<Applicants> getApplicantFromResponse(ResultSet response) {
+		ArrayList<Applicants> list = new ArrayList<Applicants>();
+		while (response.hasNext()) {
+			QuerySolution soln = response.nextSolution();
+			RDFNode email = soln.get("?email");
+			RDFNode expectedGraduationDate = soln.get("?expectedGraduationDate");
+			RDFNode expectedSalary = soln.get("?expectedSalary");
+			RDFNode gender = soln.get("?gender");
+			RDFNode applicantName = soln.get("?applicantName");
+			RDFNode lives_in = soln.get("?lives_in");
+			RDFNode major = soln.get("?major");
+			RDFNode university = soln.get("?university");
+			RDFNode specialization = soln.get("?specialization");
+			RDFNode latitude = soln.get("?lat");
+			RDFNode longitude = soln.get("?long");
+			RDFNode schoolLevel = soln.get("?schoolLevel");
+			RDFNode skills = soln.get("skills");
+
+			Applicants applicant = new Applicants();
+			Location location = new Location();
+			LatLongPair pair = new LatLongPair();
+
+			if (skills != null) {
+				String skill_string = skills.toString();
+
+				List<String> skill_list = Arrays.asList(skill_string.split(","));
+				applicant.setSkills(skill_list);
+			} else {
+				System.out.println("Skills Not Found");
+			}
+
+			if (email != null) {
+				applicant.setEmail(email.toString());
+			} else {
+				System.out.println("Email  Not Found");
+			}
+			if (expectedGraduationDate != null)
+				applicant.setExpectedGraduationDate(expectedGraduationDate.toString());
+			else
+				System.out.println("Expected Graduation Date Not Found");
+
+			if (lives_in != null)
+				location.setCityName(lives_in.toString());
+			else
+				System.out.println("City Name Not Found");
+
+			if (gender != null)
+				applicant.setGender(gender.toString());
+			else
+				System.out.println("Gender Not Mentioned");
+			if (major != null)
+				applicant.setMajor(major.toString());
+			else
+				System.out.println("Major Not Found");
+			if (schoolLevel != null)
+				applicant.setSchoolLevel(schoolLevel.toString());
+			else
+				System.out.println("School Level Not Found");
+			if (specialization != null)
+				applicant.setSpecialization(specialization.toString());
+			else
+				System.out.println("Specialization Not Found");
+
+			if (latitude != null)
+				pair.setLatitude(latitude.toString());
+			else
+				System.out.println("Latitude Not found");
+			if (longitude != null)
+				pair.setLongitude(longitude.toString());
+			else
+				System.out.println("Longitude Not Found");
+
+			location.setPair(pair);
+			applicant.setLocation(location);
+
+			list.add(applicant);
+
+		}
+		return list;
+
 	}
 
 	private List<Jobs> getJobFromResponse(ResultSet response) {

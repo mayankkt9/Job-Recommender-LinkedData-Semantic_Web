@@ -8,7 +8,7 @@ Run your fuseki server,
 
 name the dataset ExploreJobs 
 
-and upload these datasets present under this folder Job_Reco/dataset
+and upload these datasets present under this folder dataset
 
 
 

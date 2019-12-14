@@ -14,4 +14,4 @@ and upload these datasets present under this folder dataset
 
 Import the project in Eclipse and run the program in Tom Cat Server
 
-Manually open Login.html
+Manually open index.html
